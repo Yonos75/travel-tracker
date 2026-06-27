@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Travel Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --text: #1a1a1a;
+      --text-muted: #666666;
+      --accent: #2563eb;
+      --accent-light: #dbeafe;
+      --visited: #3b82f6;
+      --visited-hover: #2563eb;
+      --unvisited: #d1d5db;
+      --unvisited-hover: #9ca3af;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --sidebar-width: 300px;
+      --radius: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --border: #334155;
+        --text: #f1f5f9;
+        --text-muted: #94a3b8;
+        --accent: #60a5fa;
+        --accent-light: #1e3a5f;
+        --visited: #60a5fa;
+        --visited-hover: #3b82f6;
+        --unvisited: #475569;
+        --unvisited-hover: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header .globe {
+      font-size: 1.3rem;
+    }
+
+    .app {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .stats {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-card .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-card .label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    .add-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .add-section label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .add-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      font-size: 0.875rem;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .add-row input:focus {
+      border-color: var(--accent);
+    }
+
+    .add-row input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+    }
+
+    .error-msg {
+      font-size: 0.75rem;
+      color: var(--danger);
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    .visited-section {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .visited-header {
+      padding: 14px 16px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+
+    .visited-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px;
+    }
+
+    .visited-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .visited-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .visited-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .country-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      margin-bottom: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      animation: fadeIn 0.15s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .country-item span {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 1rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .remove-btn:hover {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .empty-msg {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    /* Map */
+    #map {
+      flex: 1;
+      z-index: 1;
+    }
+
+    /* Leaflet overrides for dark mode */
+    @media (prefers-color-scheme: dark) {
+      .leaflet-container {
+        background: #0f172a;
+      }
+    }
+
+    .map-tooltip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+
+    @media (max-width: 600px) {
+      :root { --sidebar-width: 100%; }
+      .app { flex-direction: column-reverse; }
+      .sidebar { width: 100%; border-right: none; border-top: 1px solid var(--border); max-height: 45vh; }
+      #map { min-height: 55vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="globe">🌍</span>
+    <h1>Travel Tracker</h1>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="stats">
+        <div class="stat-card">
+          <div class="value" id="count">0</div>
+          <div class="label">Countries</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="pct">0%</div>
+          <div class="label">Of World</div>
+        </div>
+      </div>
+
+      <div class="add-section">
+        <label for="country-input">Add country</label>
+        <div class="add-row">
+          <input id="country-input" type="text" placeholder="e.g. France" autocomplete="off" />
+          <button class="btn" id="add-btn">Add</button>
+        </div>
+        <div class="error-msg" id="error-msg"></div>
+      </div>
+
+      <div class="visited-section">
+        <div class="visited-header">Visited</div>
+        <div class="visited-list" id="visited-list"></div>
+      </div>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    const STORAGE_KEY = 'travel-tracker-visited';
+    let visited = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+    let geojsonLayer = null;
+    let totalCountries = 0;
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...visited]));
+    }
+
+    // ── Map setup ──────────────────────────────────────────────────────────────
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    const map = L.map('map', {
+      center: [20, 0],
+      zoom: 2,
+      minZoom: 1,
+      maxZoom: 6,
+      worldCopyJump: true,
+    });
+
+    // Tile layer: CartoDB Positron (light) or Dark Matter
+    const tileUrl = prefersDark
+      ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // ── Style helpers ──────────────────────────────────────────────────────────
+    function styleFor(name) {
+      const isVisited = visited.has(name);
+      return {
+        fillColor: isVisited ? '#3b82f6' : (prefersDark ? '#334155' : '#d1d5db'),
+        fillOpacity: isVisited ? 0.75 : 0.5,
+        color: prefersDark ? '#1e293b' : '#ffffff',
+        weight: 1,
+      };
+    }
+
+    function highlightFeature(e) {
+      const layer = e.target;
+      layer.setStyle({
+        weight: 2,
+        color: prefersDark ? '#94a3b8' : '#4b5563',
+        fillOpacity: 0.9,
+      });
+      layer.bringToFront();
+    }
+
+    function resetHighlight(e) {
+      geojsonLayer.resetStyle(e.target);
+    }
+
+    function onCountryClick(e) {
+      const name = e.target.feature.properties.NAME;
+      toggle(name);
+    }
+
+    // ── GeoJSON layer ──────────────────────────────────────────────────────────
+    fetch('ne_110m_admin_0_countries.geojson')
+      .then(r => r.json())
+      .then(data => {
+        totalCountries = data.features.length;
+
+        geojsonLayer = L.geoJSON(data, {
+          style: f => styleFor(f.properties.NAME),
+          onEachFeature: (feature, layer) => {
+            const name = feature.properties.NAME;
+            layer.bindTooltip(name, {
+              sticky: true,
+              className: 'map-tooltip',
+              direction: 'top',
+              offset: [0, -4],
+            });
+            layer.on({
+              mouseover: highlightFeature,
+              mouseout: resetHighlight,
+              click: onCountryClick,
+            });
+          },
+        }).addTo(map);
+
+        refreshUI();
+      })
+      .catch(err => {
+        console.error('Failed to load GeoJSON:', err);
+      });
+
+    // ── Core toggle ───────────────────────────────────────────────────────────
+    function toggle(name, forceOn = false) {
+      if (!name) return;
+      if (forceOn || !visited.has(name)) {
+        visited.add(name);
+      } else {
+        visited.delete(name);
+      }
+      save();
+      refreshUI();
+      refreshMap();
+    }
+
+    function remove(name) {
+      visited.delete(name);
+      save();
+      refreshUI();
+      refreshMap();
+    }
+
+    // ── Map refresh ────────────────────────────────────────────────────────────
+    function refreshMap() {
+      if (!geojsonLayer) return;
+      geojsonLayer.eachLayer(layer => {
+        geojsonLayer.resetStyle(layer);
+      });
+    }
+
+    // ── UI refresh ─────────────────────────────────────────────────────────────
+    function refreshUI() {
+      const count = visited.size;
+      const pct = totalCountries > 0
+        ? Math.round((count / totalCountries) * 100)
+        : 0;
+
+      document.getElementById('count').textContent = count;
+      document.getElementById('pct').textContent = pct + '%';
+
+      const list = document.getElementById('visited-list');
+      const sorted = [...visited].sort((a, b) => a.localeCompare(b));
+
+      if (sorted.length === 0) {
+        list.innerHTML = '<div class="empty-msg">No countries yet.<br/>Click the map or add one below.</div>';
+        return;
+      }
+
+      list.innerHTML = sorted.map(name => `
+        <div class="country-item">
+          <span>${escHtml(name)}</span>
+          <button class="remove-btn" title="Remove" data-name="${escAttr(name)}">✕</button>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => remove(btn.dataset.name));
+      });
+    }
+
+    // ── Add by name ────────────────────────────────────────────────────────────
+    function findCountryName(input) {
+      if (!geojsonLayer) return null;
+      const q = input.trim().toLowerCase();
+      let match = null;
+      geojsonLayer.eachLayer(layer => {
+        const name = layer.feature.properties.NAME;
+        if (name.toLowerCase() === q) match = name;
+      });
+      if (match) return match;
+      // Partial match fallback
+      geojsonLayer.eachLayer(layer => {
+        const name = layer.feature.properties.NAME;
+        if (!match && name.toLowerCase().includes(q)) match = name;
+      });
+      return match;
+    }
+
+    function addByName() {
+      const input = document.getElementById('country-input');
+      const errorEl = document.getElementById('error-msg');
+      const raw = input.value.trim();
+      errorEl.textContent = '';
+
+      if (!raw) return;
+
+      const name = findCountryName(raw);
+      if (!name) {
+        errorEl.textContent = `"${raw}" not found. Check the spelling.`;
+        return;
+      }
+
+      if (visited.has(name)) {
+        errorEl.textContent = `${name} is already in your list.`;
+        return;
+      }
+
+      toggle(name, true);
+      input.value = '';
+    }
+
+    document.getElementById('add-btn').addEventListener('click', addByName);
+    document.getElementById('country-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addByName();
+    });
+
+    // ── Escape helpers ─────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escAttr(str) {
+      return str.replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
